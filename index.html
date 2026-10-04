@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Printing Calculator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Printing calculator</h1>
+  <a href="prices.html">Price settings</a>
+
+  <div class="bar">
+    <input type="file" id="file" accept="application/pdf">
+    <label>Paper size
+      <select id="size">
+        <option value="letter">Letter</option>
+        <option value="a4">A4</option>
+        <option value="long">Long (8.5 x 13)</option>
+      </select>
+    </label>
+    <label>Copies
+      <input type="number" id="copies" value="1" min="1">
+    </label>
+  </div>
+
+  <p id="status">Choose a PDF to price it.</p>
+
+  <div id="cards"></div>
+
+  <p id="total"></p>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

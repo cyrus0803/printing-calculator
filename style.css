@@ -1,0 +1,14 @@
+html { font-size: 20px; }
+body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 24px 32px; color: #1f2933; }
+h1 { font-size: 2rem; }
+.bar { display: flex; flex-wrap: wrap; gap: 24px; align-items: end; margin: 16px 0; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; }
+input, select, button { font-size: 1rem; padding: 8px 12px; }
+#status { color: #52606d; }
+#total { font-size: 2.5rem; font-weight: 700; margin: 16px 0; }
+
+#cards { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 12px; }
+.card { flex: 0 0 180px; border: 1px solid #d9dee3; padding: 16px; }
+.card h3 { margin: 0 0 8px; }
+.card p { margin: 4px 0; color: #52606d; }
+.price { font-size: 2.5rem; font-weight: 700; margin-top: 12px; }
