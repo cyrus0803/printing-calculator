@@ -12,3 +12,5 @@ input, select, button { font-size: 1rem; padding: 8px 12px; }
 .card h3 { margin: 0 0 8px; }
 .card p { margin: 4px 0; color: #52606d; }
 .price { font-size: 2.5rem; font-weight: 700; margin-top: 12px; }
+#drop { border: 3px dashed #9aa5b1; padding: 32px; text-align: center; color: #52606d; cursor: pointer; margin: 16px 0; }
+#drop.over {border-color: #185FA5; background: #e6f1fb; color: #185FA5; }

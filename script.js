@@ -25,29 +25,23 @@ function getLevel(ink, color) {
   return i === -1 ? 8 : 4 + i;
 }
 
-// Match the PDF page size (in points) to Letter, A4 or Long
+// Paper sizes in points (1 point = 1/72 inch)
+const PAGE = { letter: [612, 792], a4: [595, 842], long: [612, 936] };
+
+// Match the PDF page size to Letter, A4 or Long
 function detectSize(w, h) {
   const a = Math.min(w, h), b = Math.max(w, h);
-  const sizes = { letter: [612, 792], a4: [595, 842], long: [612, 936] };
   let best = "letter", diff = Infinity;
-  for (const k in sizes) {
-    const d = Math.abs(a - sizes[k][0]) + Math.abs(b - sizes[k][1]);
+  for (const k in PAGE) {
+    const d = Math.abs(a - PAGE[k][0]) + Math.abs(b - PAGE[k][1]);
     if (d < diff) { diff = d; best = k; }
   }
   return best;
 }
 
-// Draw the page on a hidden canvas, then measure ink and color
-async function analyzePage(page) {
-  const vp = page.getViewport({ scale: 0.75 });
-  const canvas = document.createElement("canvas");
-  canvas.width = vp.width;
-  canvas.height = vp.height;
+// Measure ink and color of whatever is drawn on a canvas
+function measure(canvas) {
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: ctx, viewport: vp }).promise;
-
   const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
   const n = d.length / 4;
   let ink = 0, colored = 0;
@@ -59,33 +53,89 @@ async function analyzePage(page) {
   return { ink: ink / n, color: colored / n };
 }
 
+// A PDF page: draw it on a hidden canvas, then measure it
+async function analyzePage(page) {
+  const vp = page.getViewport({ scale: 0.75 });
+  const canvas = document.createElement("canvas");
+  canvas.width = vp.width;
+  canvas.height = vp.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  return measure(canvas);
+}
+
+// An image: fit it onto a blank page of the chosen paper size, then measure it
+async function analyzeImage(file) {
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+  await img.decode();
+
+  const [pw, ph] = PAGE[$("size").value];
+  const canvas = document.createElement("canvas");
+  canvas.width = pw * 0.75;
+  canvas.height = ph * 0.75;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+  const w = img.width * scale, h = img.height * scale;
+  ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+
+  URL.revokeObjectURL(img.src);
+  return measure(canvas);
+}
+
 // ---- 3. PAGE LOGIC ----
 const $ = id => document.getElementById(id);
 let pages = [];
 
-$("file").addEventListener("change", async e => {
-  const file = e.target.files[0];
+$("file").addEventListener("change", e => {
+  handleFile(e.target.files[0]);
+  e.target.value = "";   // lets you choose the same file again
+});
+
+async function handleFile(file) {
   if (!file) return;
+
+  pages = [];
+  $("cards").innerHTML = "";
+  $("total").textContent = "";
+
+  // Word, PowerPoint, Excel: the real print layout only exists in a PDF
+  if (/\.(docx?|pptx?|xlsx?)$/i.test(file.name)) {
+    $("status").textContent =
+      "Open this file and save it as PDF first (File > Save As > PDF). " +
+      "For PowerPoint with several slides per page: File > Export > Create PDF > Options > Publish what: Handouts. Then choose the PDF here.";
+    return;
+  }
+
   $("status").textContent = "Reading pages...";
   try {
-    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-    pages = [];
-    for (let n = 1; n <= pdf.numPages; n++) {
-      const page = await pdf.getPage(n);
-      if (n === 1) {
-        const v = page.getViewport({ scale: 1 });
-        $("size").value = detectSize(v.width, v.height);
-      }
-      const r = await analyzePage(page);
+    if (file.type.startsWith("image/")) {
+      const r = await analyzeImage(file);
       pages.push({ ...r, level: getLevel(r.ink, r.color) });
+    } else {
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      for (let n = 1; n <= pdf.numPages; n++) {
+        const page = await pdf.getPage(n);
+        if (n === 1) {
+          const v = page.getViewport({ scale: 1 });
+          $("size").value = detectSize(v.width, v.height);
+        }
+        const r = await analyzePage(page);
+        pages.push({ ...r, level: getLevel(r.ink, r.color) });
+      }
     }
-    $("status").textContent = pdf.numPages + " page(s) analyzed. You can change any page's level.";
+    $("status").textContent = pages.length + " page(s) analyzed. You can change any page's level.";
     render();
   } catch (err) {
-    $("status").textContent = "Could not read this file. Make sure it is a PDF.";
+    $("status").textContent = "Could not read this file. Use a PDF or an image.";
     console.error(err);
   }
-});
+};
 
 function render() {
   const size = $("size").value;
@@ -123,3 +173,19 @@ $("cards").addEventListener("change", e => {
 
 $("size").addEventListener("change", render);
 $("copies").addEventListener("input", render);
+
+// ---- 4. DRAG AND DROP ----
+const drop = $("drop");
+
+// stop the browser from opening the file itself when it is dropped
+["dragover", "drop"].forEach(ev =>
+  window.addEventListener(ev, e => e.preventDefault())
+);
+
+drop.addEventListener("dragover", () => drop.classList.add("over"));
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => {
+  drop.classList.remove("over");
+  handleFile(e.dataTransfer.files[0]);
+});
+drop.addEventListener("click", () => $("file").click());
