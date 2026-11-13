@@ -1,1 +1,0 @@
-The Printing Calculator is made for pdf files ONLY. since it is still in beta and are currently working on different features such as making it compatible with different file types such as .docx, .xlsx and many more. It will calculate the ink usage of each page and determine the price to your liking within <prices.html>.
